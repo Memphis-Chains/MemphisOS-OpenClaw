@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "id": "openclaw",
+  "name": "OpenClaw",
+  "description": "Managed OpenClaw install and lifecycle manifest for MemphisOS downstream integrations.",
+  "homepage": "https://docs.openclaw.ai/",
+  "platforms": ["linux"],
+  "runtime": {
+    "node": {
+      "minVersion": "22.16.0",
+      "recommendedVersion": "24.0.0"
+    },
+    "commands": [
+      {
+        "name": "npm",
+        "required": true,
+        "detail": "required for the official npm-based OpenClaw install path"
+      },
+      {
+        "name": "git",
+        "required": true,
+        "detail": "required for source-based fallback installs and repo workflows"
+      },
+      {
+        "name": "pnpm",
+        "required": false,
+        "detail": "optional for source builds and local development workflows"
+      }
+    ],
+    "systemdUserService": true
+  },
+  "paths": {
+    "home": "${APP_ROOT}/home",
+    "state": "${APP_ROOT}/state",
+    "config": "${APP_ROOT}/config/openclaw.json",
+    "expose": {
+      "OPENCLAW_HOME": "home",
+      "OPENCLAW_STATE_DIR": "state",
+      "OPENCLAW_CONFIG_PATH": "config"
+    }
+  },
+  "actions": {
+    "install": {
+      "summary": "Install OpenClaw, run non-interactive onboarding, and install the Gateway service.",
+      "steps": [
+        "npm i -g openclaw@latest",
+        "openclaw onboard --non-interactive --mode local --auth-choice skip --gateway-auth token --gateway-token-ref-env OPENCLAW_GATEWAY_TOKEN --install-daemon --accept-risk",
+        "openclaw gateway status --json"
+      ],
+      "requiresEnv": [
+        "OPENCLAW_GATEWAY_TOKEN"
+      ]
+    },
+    "doctor": {
+      "summary": "Run the upstream OpenClaw environment checks.",
+      "steps": [
+        "openclaw doctor"
+      ]
+    },
+    "start": {
+      "summary": "Start the OpenClaw Gateway managed service.",
+      "steps": [
+        "openclaw gateway start",
+        "openclaw gateway status --json"
+      ]
+    },
+    "stop": {
+      "summary": "Stop the OpenClaw Gateway managed service.",
+      "steps": [
+        "openclaw gateway stop"
+      ]
+    },
+    "restart": {
+      "summary": "Restart the OpenClaw Gateway managed service.",
+      "steps": [
+        "openclaw gateway restart",
+        "openclaw gateway status --json"
+      ]
+    },
+    "status": {
+      "summary": "Inspect OpenClaw gateway runtime status.",
+      "steps": [
+        "openclaw gateway status --json"
+      ]
+    },
+    "dashboard": {
+      "summary": "Open or print the OpenClaw dashboard endpoint.",
+      "steps": [
+        "openclaw dashboard"
+      ]
+    }
+  },
+  "notes": [
+    "This integration pack is intentionally downstream from MemphisOS core.",
+    "Keep vendor-specific onboarding, secrets, and service behavior here rather than in MemphisOS main."
+  ]
+}
