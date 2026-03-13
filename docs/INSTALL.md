@@ -15,7 +15,7 @@
 From the MemphisOS repo:
 
 ```bash
-cd /home/memphis_ai_brain_on_chain/MemphisOS
+cd /path/to/MemphisOS
 npm run -s cli -- vault init --passphrase 'strong-passphrase' --recovery-question 'pet' --recovery-answer 'nori'
 npm run -s cli -- vault add --key OPENCLAW_GATEWAY_TOKEN --value 'your-token-here'
 ```
@@ -26,7 +26,7 @@ If needed for debugging, a directly exported `OPENCLAW_GATEWAY_TOKEN` still over
 ## Inspect The Manifest
 
 ```bash
-cd /home/memphis_ai_brain_on_chain/MemphisOS
+cd /path/to/MemphisOS
 npm run -s cli -- apps show openclaw --file ../MemphisOS-OpenClaw/manifests/openclaw.manifest.json --json
 ```
 
