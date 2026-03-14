@@ -7,6 +7,7 @@ import { createTelegramAdapter } from './channels/telegram.js';
 import { createDiscordAdapter } from './channels/discord.js';
 import { createMemphisClient, createNullMemoryClient } from './memory/client.js';
 import { createAnthropicClient } from './llm/anthropic.js';
+import { createGlmClient } from './llm/glm.js';
 import { createOllamaClient } from './llm/ollama.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
@@ -30,6 +31,13 @@ async function main(): Promise<void> {
       model: process.env.ANTHROPIC_MODEL,
     });
     log.info({ model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6' }, 'LLM: Anthropic');
+  } else if (llmProvider === 'glm') {
+    llm = createGlmClient({
+      apiKey: requireEnv('GLM_API_KEY'),
+      model: process.env.GLM_MODEL,
+      baseUrl: process.env.GLM_BASE_URL,
+    });
+    log.info({ model: process.env.GLM_MODEL ?? 'glm-4-flash' }, 'LLM: GLM (Zhipu AI)');
   } else if (llmProvider === 'ollama') {
     llm = createOllamaClient({
       baseUrl: process.env.OLLAMA_BASE_URL,
@@ -41,7 +49,7 @@ async function main(): Promise<void> {
       'LLM: Ollama',
     );
   } else {
-    throw new Error(`unknown LLM_PROVIDER: ${llmProvider} — use 'ollama' or 'anthropic'`);
+    throw new Error(`unknown LLM_PROVIDER: ${llmProvider} — use 'ollama', 'anthropic', or 'glm'`);
   }
 
   // Memory — optional, fails open
