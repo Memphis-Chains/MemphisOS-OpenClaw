@@ -1,4 +1,37 @@
+# ── Dependencies ──────────────────────────────────────────────────────────────
 node_modules/
 dist/
+coverage/
+
+# ── Secrets & credentials (NEVER publish) ────────────────────────────────────
 .env
-*.env.local
+.env.*
+!.env.example
+*.secret
+*.pem
+*.key
+credentials/
+
+# ── Runtime state (generated, not source) ────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.log
+chains/
+
+# ── Models & training (LLM workstation) ──────────────────────────────────────
+models/
+training-data/
+*.onnx
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+
+# ── OS / editor ──────────────────────────────────────────────────────────────
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
