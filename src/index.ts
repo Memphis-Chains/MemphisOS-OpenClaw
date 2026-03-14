@@ -74,7 +74,19 @@ async function main(): Promise<void> {
   const adapters: ChannelAdapter[] = [];
 
   if (process.env.TELEGRAM_BOT_TOKEN) {
-    adapters.push(createTelegramAdapter(process.env.TELEGRAM_BOT_TOKEN));
+    adapters.push(createTelegramAdapter(process.env.TELEGRAM_BOT_TOKEN, {
+      onStatus: () => [
+        '🟢 Soul — online',
+        `LLM: ${llmProvider} (${process.env.MINIMAX_MODEL ?? process.env.GLM_MODEL ?? process.env.OLLAMA_MODEL ?? process.env.ANTHROPIC_MODEL ?? 'default'})`,
+        `Memory: ${memphisUrl ? 'Memphis v5 connected' : 'disabled'}`,
+        'Gateway: OpenClaw',
+      ].join('\n'),
+      onRecall: async (userId) => {
+        const ctx = await memory.recall(userId, 'recent conversations topics identity', 8);
+        if (ctx.items.length === 0) return 'No memories stored yet.';
+        return 'What I remember:\n' + ctx.items.map((i) => `• ${i.content.slice(0, 120)}`).join('\n');
+      },
+    }));
     log.info('Telegram channel enabled');
   }
 

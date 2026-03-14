@@ -4,10 +4,28 @@ import type {
   IncomingMessage,
   LlmMessage,
   MemoryClient,
-  LlmClient,
 } from './types.js';
 
 const DEFAULT_SYSTEM_PROMPT = `You are OpenClaw, a personal AI assistant. You run on the user's own device and speak to them on the channels they already use. You have access to their memory of past conversations. Be concise, direct, and genuinely helpful.`;
+
+// Keep last N message pairs per chat session (in-memory, resets on restart)
+const SESSION_DEPTH = 10;
+const sessions = new Map<string, LlmMessage[]>();
+
+function getSession(chatId: string): LlmMessage[] {
+  if (!sessions.has(chatId)) sessions.set(chatId, []);
+  return sessions.get(chatId)!;
+}
+
+function appendToSession(chatId: string, userText: string, assistantReply: string): void {
+  const history = getSession(chatId);
+  history.push({ role: 'user', content: userText });
+  history.push({ role: 'assistant', content: assistantReply });
+  // Trim to last SESSION_DEPTH pairs
+  if (history.length > SESSION_DEPTH * 2) {
+    history.splice(0, history.length - SESSION_DEPTH * 2);
+  }
+}
 
 function buildSystemPrompt(config: GatewayConfig, context: Awaited<ReturnType<MemoryClient['recall']>>): string {
   const base = config.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
@@ -26,12 +44,18 @@ export async function handleMessage(
   adapterMap: Map<string, ChannelAdapter>,
 ): Promise<void> {
   const context = await config.memory.recall(message.userId, message.text, 5);
-
   const systemPrompt = buildSystemPrompt(config, context);
-  const messages: LlmMessage[] = [{ role: 'user', content: message.text }];
+
+  // Build messages: long-term memory context + in-session history + current message
+  const history = getSession(message.chatId);
+  const messages: LlmMessage[] = [
+    ...history,
+    { role: 'user', content: message.text },
+  ];
 
   const reply = await config.llm.complete({ system: systemPrompt, messages });
 
+  appendToSession(message.chatId, message.text, reply);
   await config.memory.store(message.userId, message.text, reply);
 
   const adapter = adapterMap.get(message.channel);

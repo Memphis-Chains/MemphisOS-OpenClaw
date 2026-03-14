@@ -2,7 +2,12 @@ import { Bot } from 'grammy';
 
 import type { ChannelAdapter, MessageHandler } from '../gateway/types.js';
 
-export function createTelegramAdapter(token: string): ChannelAdapter {
+export type TelegramAdapterOptions = {
+  onStatus?: () => string;
+  onRecall?: (userId: string) => Promise<string>;
+};
+
+export function createTelegramAdapter(token: string, options: TelegramAdapterOptions = {}): ChannelAdapter {
   const bot = new Bot(token);
   let started = false;
 
@@ -12,15 +17,33 @@ export function createTelegramAdapter(token: string): ChannelAdapter {
     async start(handler: MessageHandler): Promise<void> {
       bot.command(['start', 'help'], async (ctx) => {
         await ctx.reply(
-          "Hey! I'm your personal AI assistant. Just send me a message and I'll reply.",
+          "Hey! I'm Soul, your personal AI assistant. Just send me a message and I'll reply.\n\nCommands:\n/status — show current status\n/recall — show what I remember about you",
         );
+      });
+
+      bot.command('status', async (ctx) => {
+        const text = options.onStatus?.() ?? 'Soul is online.';
+        await ctx.reply(text);
+      });
+
+      bot.command('recall', async (ctx) => {
+        const userId = `telegram:${String(ctx.from?.id ?? 'unknown')}`;
+        if (options.onRecall) {
+          await ctx.replyWithChatAction('typing');
+          const text = await options.onRecall(userId);
+          await ctx.reply(text);
+        } else {
+          await ctx.reply('Memory not available.');
+        }
       });
 
       bot.on('message:text', async (ctx) => {
         const msg = ctx.message;
         if (!msg.text || msg.from?.is_bot) return;
 
-        // Send typing indicator immediately, refresh every 4s while waiting
+        // Skip slash commands already handled above
+        if (msg.text.startsWith('/')) return;
+
         await ctx.replyWithChatAction('typing');
         const typingInterval = setInterval(() => {
           void ctx.replyWithChatAction('typing');
@@ -42,13 +65,11 @@ export function createTelegramAdapter(token: string): ChannelAdapter {
         }
       });
 
-      // grammy uses long-polling by default; no webhook config needed for development
       void bot.start({ drop_pending_updates: true });
       started = true;
     },
 
     async send(chatId: string, text: string): Promise<void> {
-      // Telegram has a 4096-char limit per message
       const chunks = splitText(text, 4096);
       for (const chunk of chunks) {
         await bot.api.sendMessage(chatId, chunk);
