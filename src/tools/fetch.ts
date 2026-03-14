@@ -1,6 +1,10 @@
 const GITHUB_RE = /(?:https?:\/\/)?github\.com\/([^/\s]+)\/([^/\s#?]+)/i;
-// Matches full URLs (https://...) and bare domains (www.example.com or example.com/path)
-const URL_RE = /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+)/gi;
+
+// Matches URLs in user messages:
+// 1. Full URLs: https://example.com, http://foo.bar/path
+// 2. www prefixed: www.example.com
+// 3. Bare domains: wp.pl, onet.pl, github.com/foo/bar — any word.tld pattern
+const URL_RE = /(?:https?:\/\/[^\s]+|www\.[^\s]+|[\w][\w-]*\.(?:com|pl|org|net|io|dev|ai|uk|de|fr|eu|info|co|me|app|gg|tv|cc|us|ca|br|ru|cn|jp|kr|in|au|nz|cz|sk|lt|lv|ee|se|no|fi|dk|nl|be|at|ch|it|es|pt|ro|hu|bg|hr|rs|si|ua|by|kz|xyz|tech|club|space|site|online|pro|store|shop|blog|live|world)(?:\/[^\s]*)?)/gi;
 
 function normalizeUrl(raw: string): string {
   if (/^https?:\/\//i.test(raw)) return raw;

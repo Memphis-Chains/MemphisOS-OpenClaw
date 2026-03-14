@@ -1,3 +1,4 @@
+import pino from 'pino';
 import type {
   ChannelAdapter,
   GatewayConfig,
@@ -6,6 +7,8 @@ import type {
   MemoryClient,
 } from './types.js';
 import { fetchUrlsFromMessage } from '../tools/fetch.js';
+
+const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
 const DEFAULT_SYSTEM_PROMPT = `You are OpenClaw, a personal AI assistant. You run on the user's own device and speak to them on the channels they already use. You have access to their memory of past conversations. Be concise, direct, and genuinely helpful.`;
 
@@ -49,13 +52,18 @@ export async function handleMessage(
     fetchUrlsFromMessage(message.text),
   ]);
 
+  log.info({ urls: fetched.length, recall: context.items.length, userId: message.userId }, 'message context');
+  if (fetched.length > 0) {
+    log.info({ fetched: fetched.map((f) => ({ url: f.url, len: f.content.length })) }, 'fetched URLs');
+  }
+
   const systemPrompt = buildSystemPrompt(config, context);
 
   // Append fetched URL content directly to the user message
   let userContent = message.text;
   if (fetched.length > 0) {
     const fetchedBlock = fetched
-      .map((f) => `[Fetched: ${f.url}]\n${f.content}`)
+      .map((f) => `[Fetched content from ${f.url}]\n${f.content}`)
       .join('\n\n');
     userContent = `${message.text}\n\n${fetchedBlock}`;
   }
