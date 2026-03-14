@@ -8,6 +8,7 @@ import { createDiscordAdapter } from './channels/discord.js';
 import { createMemphisClient, createNullMemoryClient } from './memory/client.js';
 import { createAnthropicClient } from './llm/anthropic.js';
 import { createGlmClient } from './llm/glm.js';
+import { createMinimaxClient } from './llm/minimax.js';
 import { createOllamaClient } from './llm/ollama.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
@@ -31,6 +32,13 @@ async function main(): Promise<void> {
       model: process.env.ANTHROPIC_MODEL,
     });
     log.info({ model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6' }, 'LLM: Anthropic');
+  } else if (llmProvider === 'minimax') {
+    llm = createMinimaxClient({
+      apiKey: requireEnv('MINIMAX_API_KEY'),
+      model: process.env.MINIMAX_MODEL,
+      baseUrl: process.env.MINIMAX_BASE_URL,
+    });
+    log.info({ model: process.env.MINIMAX_MODEL ?? 'MiniMax-M2.5-highspeed' }, 'LLM: MiniMax');
   } else if (llmProvider === 'glm') {
     llm = createGlmClient({
       apiKey: requireEnv('GLM_API_KEY'),
@@ -49,7 +57,7 @@ async function main(): Promise<void> {
       'LLM: Ollama',
     );
   } else {
-    throw new Error(`unknown LLM_PROVIDER: ${llmProvider} — use 'ollama', 'anthropic', or 'glm'`);
+    throw new Error(`unknown LLM_PROVIDER: ${llmProvider} — use 'ollama', 'anthropic', 'glm', or 'minimax'`);
   }
 
   // Memory — optional, fails open
