@@ -5,6 +5,7 @@ import type {
   LlmMessage,
   MemoryClient,
 } from './types.js';
+import { fetchUrlsFromMessage } from '../tools/fetch.js';
 
 const DEFAULT_SYSTEM_PROMPT = `You are OpenClaw, a personal AI assistant. You run on the user's own device and speak to them on the channels they already use. You have access to their memory of past conversations. Be concise, direct, and genuinely helpful.`;
 
@@ -43,14 +44,27 @@ export async function handleMessage(
   config: GatewayConfig,
   adapterMap: Map<string, ChannelAdapter>,
 ): Promise<void> {
-  const context = await config.memory.recall(message.userId, message.text, 5);
+  const [context, fetched] = await Promise.all([
+    config.memory.recall(message.userId, message.text, 5),
+    fetchUrlsFromMessage(message.text),
+  ]);
+
   const systemPrompt = buildSystemPrompt(config, context);
 
-  // Build messages: long-term memory context + in-session history + current message
+  // Append fetched URL content directly to the user message
+  let userContent = message.text;
+  if (fetched.length > 0) {
+    const fetchedBlock = fetched
+      .map((f) => `[Fetched: ${f.url}]\n${f.content}`)
+      .join('\n\n');
+    userContent = `${message.text}\n\n${fetchedBlock}`;
+  }
+
+  // Build messages: in-session history + current message (with fetched content)
   const history = getSession(message.chatId);
   const messages: LlmMessage[] = [
     ...history,
-    { role: 'user', content: message.text },
+    { role: 'user', content: userContent },
   ];
 
   const reply = await config.llm.complete({ system: systemPrompt, messages });
