@@ -1,5 +1,11 @@
-const GITHUB_RE = /https?:\/\/github\.com\/([^/\s]+)\/([^/\s#?]+)/i;
-const URL_RE = /https?:\/\/[^\s]+/gi;
+const GITHUB_RE = /(?:https?:\/\/)?github\.com\/([^/\s]+)\/([^/\s#?]+)/i;
+// Matches full URLs (https://...) and bare domains (www.example.com or example.com/path)
+const URL_RE = /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+)/gi;
+
+function normalizeUrl(raw: string): string {
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
 
 type FetchedContext = {
   url: string;
@@ -73,7 +79,8 @@ export async function fetchUrlsFromMessage(text: string): Promise<FetchedContext
   if (urls.length === 0) return [];
 
   const results = await Promise.allSettled(
-    urls.map(async (url): Promise<FetchedContext> => {
+    urls.map(async (rawUrl): Promise<FetchedContext> => {
+      const url = normalizeUrl(rawUrl);
       const ghMatch = url.match(GITHUB_RE);
       if (ghMatch) {
         const content = await fetchGithubRepo(ghMatch[1], ghMatch[2]);
