@@ -5,8 +5,10 @@ type MemphisConfig = {
   apiToken?: string;
 };
 
+type RecallHit = { id: string; score: number; text_preview: string };
 type RecallResponse = {
-  results: Array<{ content: string; score: number }>;
+  ok: boolean;
+  results: { query: string; count: number; hits: RecallHit[] };
 };
 
 /**
@@ -45,7 +47,9 @@ export function createMemphisClient(config: MemphisConfig): MemoryClient {
       try {
         const data = await post('/api/recall', { userId, query, limit }) as RecallResponse;
         _available = true;
-        return { items: data.results };
+        return {
+          items: (data.results?.hits ?? []).map((h) => ({ content: h.text_preview, score: h.score })),
+        };
       } catch {
         _available = false;
         return { items: [] };
