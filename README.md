@@ -21,9 +21,12 @@ npm run -s cli -- apps install openclaw --file ../MemphisOS-OpenClaw/manifests/o
 To execute a real install:
 
 ```bash
-export OPENCLAW_GATEWAY_TOKEN='your-token-here'
+npm run -s cli -- vault init --passphrase 'strong-passphrase' --recovery-question 'pet' --recovery-answer 'nori'
+npm run -s cli -- vault add --key OPENCLAW_GATEWAY_TOKEN --value 'your-token-here'
 npm run -s cli -- apps install openclaw --file ../MemphisOS-OpenClaw/manifests/openclaw.manifest.json --apply --json
 ```
+
+For one-off debugging, exporting `OPENCLAW_GATEWAY_TOKEN` directly still overrides the vault lookup.
 
 ## Why This Repo Exists
 
