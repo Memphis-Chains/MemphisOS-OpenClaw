@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "id": "openclaw",
+  "name": "OpenClaw",
+  "description": "Personal AI gateway — routes Telegram/Discord messages to a local or cloud LLM",
+  "capabilities": ["service", "secrets"],
+  "platforms": ["linux"],
+  "runtime": {
+    "node": { "minVersion": "22.0.0" },
+    "commands": [
+      { "name": "node", "required": true },
+      { "name": "npm", "required": true },
+      { "name": "systemctl", "required": true, "detail": "Required for systemd user service management" },
+      { "name": "ollama", "required": false, "detail": "Required when LLM_PROVIDER=ollama (default)" }
+    ],
+    "systemdUserService": true
+  },
+  "actions": {
+    "install": {
+      "summary": "Build OpenClaw and register it as a systemd user service",
+      "cwd": "/home/memphis_ai_brain_on_chain/openclaw",
+      "steps": [
+        "npm install",
+        "npm run build",
+        "chmod 600 /home/memphis_ai_brain_on_chain/openclaw/.env",
+        "mkdir -p ~/.config/systemd/user",
+        "NODE_BIN=$(which node) && printf '[Unit]\\nDescription=OpenClaw AI Gateway\\nAfter=network.target\\n\\n[Service]\\nType=simple\\nWorkingDirectory=/home/memphis_ai_brain_on_chain/openclaw\\nExecStart=%s /home/memphis_ai_brain_on_chain/openclaw/dist/index.js\\nRestart=on-failure\\nRestartSec=5\\nEnvironmentFile=/home/memphis_ai_brain_on_chain/openclaw/.env\\n\\n[Install]\\nWantedBy=default.target\\n' \"$NODE_BIN\" > ~/.config/systemd/user/openclaw.service",
+        "systemctl --user daemon-reload",
+        "systemctl --user enable openclaw"
+      ]
+    },
+    "start": {
+      "summary": "Start the OpenClaw service",
+      "steps": ["systemctl --user start openclaw"]
+    },
+    "stop": {
+      "summary": "Stop the OpenClaw service",
+      "steps": ["systemctl --user stop openclaw"]
+    },
+    "restart": {
+      "summary": "Restart the OpenClaw service (e.g. after config change)",
+      "steps": ["systemctl --user restart openclaw"]
+    },
+    "status": {
+      "summary": "Show current service status",
+      "steps": ["systemctl --user status openclaw --no-pager"]
+    },
+    "logs": {
+      "summary": "Tail the last 50 log lines from journald",
+      "steps": ["journalctl --user -u openclaw -n 50 --no-pager"]
+    },
+    "doctor": {
+      "summary": "Check that OpenClaw prerequisites and build are in place",
+      "steps": [
+        "node --version",
+        "test -f /home/memphis_ai_brain_on_chain/openclaw/dist/index.js && echo 'build: ok' || echo 'build: MISSING — run install first'",
+        "systemctl --user is-active openclaw && echo 'service: running' || echo 'service: stopped'"
+      ]
+    }
+  },
+  "notes": [
+    "Ensure /home/memphis_ai_brain_on_chain/openclaw/.env is populated before installing.",
+    "Once vault is initialized, migrate TELEGRAM_BOT_TOKEN there and update vaultEnv.",
+    "Then: memphis apps install openclaw --apply",
+    "      memphis apps start openclaw --apply"
+  ]
+}
