@@ -55,6 +55,28 @@ function buildSystemPrompt(config: GatewayConfig, context: Awaited<ReturnType<Me
   return `${base}${securityNotice}\n\n<recalled_memory>\n${contextBlock}\n</recalled_memory>`;
 }
 
+/**
+ * Parse a tool result to detect require-approval pending responses.
+ * Returns { requestId, message } if pending, null otherwise.
+ */
+function parseApprovalPending(result: string): { requestId: string; message: string } | null {
+  try {
+    const parsed = JSON.parse(result);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      parsed.approved === false &&
+      parsed.state === 'pending' &&
+      typeof parsed.requestId === 'string'
+    ) {
+      return { requestId: parsed.requestId, message: parsed.message ?? '' };
+    }
+  } catch {
+    // Not JSON — not an approval response
+  }
+  return null;
+}
+
 function newLoopState(): LoopState {
   return { steps: 0, tool_calls: 0, wait_ms: 0, errors: 0, completed: false, halt_reason: null };
 }
@@ -228,6 +250,23 @@ async function runToolLoop(
           halted = true;
           break;
         }
+      }
+
+      // Detect require-approval pending response
+      const approvalPending = parseApprovalPending(result);
+      if (approvalPending) {
+        log.info(
+          { tool: tc.name, requestId: approvalPending.requestId },
+          'tool requires operator approval',
+        );
+        // Tell the LLM the tool is waiting for approval so it can inform the user
+        result = JSON.stringify({
+          awaiting_approval: true,
+          tool: tc.name,
+          requestId: approvalPending.requestId,
+          message: approvalPending.message,
+          hint: 'This tool requires human operator approval before it can execute. Inform the user and wait for them to confirm the operator has approved.',
+        });
       }
 
       workingMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
