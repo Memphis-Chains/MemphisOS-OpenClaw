@@ -1,4 +1,4 @@
-export type ChannelName = 'telegram' | 'discord';
+export type ChannelName = 'telegram' | 'discord' | 'terminal';
 
 export type IncomingMessage = {
   id: string;
@@ -79,6 +79,11 @@ export type LoopState = {
   halt_reason: string | null;
 };
 
+export type SessionStore = {
+  get(chatId: string): LlmMessage[];
+  append(chatId: string, userText: string, assistantReply: string, channel?: string): void;
+};
+
 export type GatewayConfig = {
   adapters: ChannelAdapter[];
   memory: MemoryClient;
@@ -86,4 +91,5 @@ export type GatewayConfig = {
   systemPrompt?: string;
   toolExecutor?: ToolExecutor;
   loopLimits?: LoopLimits;
+  sessions?: SessionStore;
 };

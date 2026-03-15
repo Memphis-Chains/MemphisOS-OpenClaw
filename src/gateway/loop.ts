@@ -7,6 +7,7 @@ import type {
   LoopLimits,
   LoopState,
   MemoryClient,
+  SessionStore,
   ToolExecutor,
 } from './types.js';
 import { fetchUrlsFromMessage } from '../tools/fetch.js';
@@ -22,24 +23,20 @@ const DEFAULT_LIMITS: LoopLimits = {
   max_errors: 4,
 };
 
-// Keep last N message pairs per chat session (in-memory, resets on restart)
-const SESSION_DEPTH = 10;
-const sessions = new Map<string, LlmMessage[]>();
-
-function getSession(chatId: string): LlmMessage[] {
-  if (!sessions.has(chatId)) sessions.set(chatId, []);
-  return sessions.get(chatId)!;
-}
-
-function appendToSession(chatId: string, userText: string, assistantReply: string): void {
-  const history = getSession(chatId);
-  history.push({ role: 'user', content: userText });
-  history.push({ role: 'assistant', content: assistantReply });
-  // Trim to last SESSION_DEPTH pairs
-  if (history.length > SESSION_DEPTH * 2) {
-    history.splice(0, history.length - SESSION_DEPTH * 2);
-  }
-}
+// Fallback in-memory session store (used when config.sessions is not provided)
+const fallbackSessions = new Map<string, LlmMessage[]>();
+const fallbackSessionStore: SessionStore = {
+  get(chatId: string): LlmMessage[] {
+    if (!fallbackSessions.has(chatId)) fallbackSessions.set(chatId, []);
+    return fallbackSessions.get(chatId)!;
+  },
+  append(chatId: string, userText: string, assistantReply: string): void {
+    const history = this.get(chatId);
+    history.push({ role: 'user', content: userText });
+    history.push({ role: 'assistant', content: assistantReply });
+    if (history.length > 20) history.splice(0, history.length - 20);
+  },
+};
 
 function buildSystemPrompt(config: GatewayConfig, context: Awaited<ReturnType<MemoryClient['recall']>>): string {
   const base = config.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
@@ -308,7 +305,8 @@ export async function handleMessage(
   }
 
   // Build messages: in-session history + current message (with fetched content)
-  const history = getSession(message.chatId);
+  const sessions = config.sessions ?? fallbackSessionStore;
+  const history = sessions.get(message.chatId);
   const messages: LlmMessage[] = [
     ...history,
     { role: 'user', content: userContent },
@@ -316,7 +314,7 @@ export async function handleMessage(
 
   const reply = await runToolLoop(systemPrompt, messages, config);
 
-  appendToSession(message.chatId, message.text, reply);
+  sessions.append(message.chatId, message.text, reply, message.channel);
   await config.memory.store(message.userId, message.text, reply);
 
   const adapter = adapterMap.get(message.channel);
