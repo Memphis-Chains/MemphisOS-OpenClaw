@@ -6,6 +6,7 @@ import type { ChannelAdapter, LlmClient } from './gateway/types.js';
 import { createTelegramAdapter } from './channels/telegram.js';
 import { createDiscordAdapter } from './channels/discord.js';
 import { createMemphisClient, createNullMemoryClient } from './memory/client.js';
+import { createMcpToolExecutor } from './mcp/client.js';
 import { createAnthropicClient } from './llm/anthropic.js';
 import { createGlmClient } from './llm/glm.js';
 import { createMinimaxClient } from './llm/minimax.js';
@@ -101,11 +102,27 @@ async function main(): Promise<void> {
     );
   }
 
+  // MCP tools — connect to Memphis MCP server if URL is set
+  const mcpUrl = process.env.MEMPHIS_MCP_URL;
+  let toolExecutor: Awaited<ReturnType<typeof createMcpToolExecutor>> | undefined;
+
+  if (mcpUrl) {
+    try {
+      toolExecutor = await createMcpToolExecutor({ serverUrl: mcpUrl });
+      log.info({ url: mcpUrl, tools: toolExecutor.listTools().map((t) => t.name) }, 'MCP tools connected');
+    } catch (err) {
+      log.warn({ err, url: mcpUrl }, 'MCP connection failed — running without tools');
+    }
+  } else {
+    log.info('MEMPHIS_MCP_URL not set — running without MCP tools');
+  }
+
   const gateway = await startGateway({
     adapters,
     memory,
     llm,
     systemPrompt: process.env.OPENCLAW_SYSTEM_PROMPT,
+    toolExecutor,
   });
 
   log.info({ channels: adapters.map((a) => a.name) }, 'gateway running');
@@ -114,7 +131,10 @@ async function main(): Promise<void> {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       log.info({ signal }, 'shutting down');
-      void gateway.stop().then(() => process.exit(0));
+      void Promise.all([
+        gateway.stop(),
+        toolExecutor?.close(),
+      ]).then(() => process.exit(0));
     });
   }
 }

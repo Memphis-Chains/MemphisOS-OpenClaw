@@ -74,6 +74,27 @@ async function fetchWebPage(url: string): Promise<string> {
   return text;
 }
 
+/** Max total characters of fetched content injected per message. */
+const MAX_TOTAL_FETCHED_CHARS = 4000;
+
+/**
+ * Block URLs that look like they're trying to exfiltrate data via query params.
+ * Rejects URLs with suspiciously long query strings or known exfil patterns.
+ */
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    // Block if query string is suspiciously long (data exfiltration vector)
+    if (parsed.search.length > 200) return false;
+    // Block localhost/internal IPs (SSRF prevention)
+    const host = parsed.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Extracts URLs from a message, fetches their content, and returns
  * an array of { url, content } objects to inject into LLM context.
@@ -85,6 +106,9 @@ export async function fetchUrlsFromMessage(text: string): Promise<FetchedContext
   const results = await Promise.allSettled(
     urls.map(async (rawUrl): Promise<FetchedContext> => {
       const url = normalizeUrl(rawUrl);
+      if (!isSafeUrl(url)) {
+        return { url, content: '[blocked: URL failed safety check]' };
+      }
       const ghMatch = url.match(GITHUB_RE);
       if (ghMatch) {
         const content = await fetchGithubRepo(ghMatch[1], ghMatch[2]);
@@ -95,7 +119,14 @@ export async function fetchUrlsFromMessage(text: string): Promise<FetchedContext
     }),
   );
 
-  return results
+  const fetched = results
     .filter((r): r is PromiseFulfilledResult<FetchedContext> => r.status === 'fulfilled')
     .map((r) => r.value);
+
+  // Enforce total content budget
+  let totalChars = 0;
+  return fetched.filter((f) => {
+    totalChars += f.content.length;
+    return totalChars <= MAX_TOTAL_FETCHED_CHARS;
+  });
 }

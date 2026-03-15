@@ -28,7 +28,7 @@ describe('createOllamaClient', () => {
       messages: [{ role: 'user', content: 'hello' }],
     });
 
-    expect(result).toBe('hi');
+    expect(result).toEqual({ content: 'hi', tool_calls: undefined });
 
     const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
     expect(url).toBe('http://localhost:11434/api/chat');

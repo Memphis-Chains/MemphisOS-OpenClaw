@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.0",
     "grammy": "^1.36.0",
