@@ -45,13 +45,10 @@ export function createMemphisClient(config: MemphisConfig): MemoryClient {
 
     async recall(userId: string, query: string, limit = 5): Promise<RecalledContext> {
       try {
-        // Request more than needed so we have headroom after userId filtering
-        const data = await post('/api/recall', { userId, query, limit: limit * 3 }) as RecallResponse;
+        // Server-side userId filtering — Memphis filters and trims for us
+        const data = await post('/api/recall', { userId, query, limit }) as RecallResponse;
         _available = true;
-        const userTag = `[${userId}]`;
-        const hits = (data.results?.hits ?? [])
-          .filter((h) => h.text_preview.includes(userTag))
-          .slice(0, limit);
+        const hits = data.results?.hits ?? [];
         return {
           items: hits.map((h) => ({ content: h.text_preview, score: h.score })),
         };
