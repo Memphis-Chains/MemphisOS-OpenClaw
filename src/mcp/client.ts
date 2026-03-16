@@ -10,6 +10,8 @@ const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 export type McpToolExecutorConfig = {
   /** Memphis MCP server URL, e.g. http://127.0.0.1:3001/mcp */
   serverUrl: string;
+  /** Bearer token for Memphis API auth */
+  apiToken?: string;
   /** How long to wait for connection (ms). Default: 10_000 */
   connectTimeoutMs?: number;
 };
@@ -28,7 +30,13 @@ export async function createMcpToolExecutor(
     { capabilities: {} },
   );
 
-  const transport = new StreamableHTTPClientTransport(new URL(config.serverUrl));
+  const headers: Record<string, string> = {};
+  if (config.apiToken) {
+    headers['authorization'] = `Bearer ${config.apiToken}`;
+  }
+  const transport = new StreamableHTTPClientTransport(new URL(config.serverUrl), {
+    requestInit: { headers },
+  });
 
   const timeoutMs = config.connectTimeoutMs ?? 10_000;
   const connectPromise = client.connect(transport);

@@ -105,7 +105,7 @@ async function main(): Promise<void> {
 
   if (mcpUrl) {
     try {
-      toolExecutor = await createMcpToolExecutor({ serverUrl: mcpUrl });
+      toolExecutor = await createMcpToolExecutor({ serverUrl: mcpUrl, apiToken: process.env.MEMPHIS_API_TOKEN });
       log.info({ url: mcpUrl, tools: toolExecutor.listTools().map((t) => t.name) }, 'MCP tools connected');
     } catch (err) {
       log.warn({ err, url: mcpUrl }, 'MCP connection failed — running without tools');
